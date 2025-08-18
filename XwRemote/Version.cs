@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using XwRemote;
 
 [assembly: AssemblyVersion(Version.AssemblyVersion)]
@@ -11,7 +11,7 @@ namespace XwRemote
 #if DEBUG
         internal const string AssemblyVersion = "0.0.0.0";
 #else
-        internal const string AssemblyVersion = "3.1.4.4";        
+        internal const string AssemblyVersion = "0.1.0.0";        
 #endif
     }
 }

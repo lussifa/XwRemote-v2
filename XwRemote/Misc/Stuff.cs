@@ -1,4 +1,4 @@
-﻿using SharpRaven;
+using SharpRaven;
 using SharpRaven.Data;
 using System;
 using System.Diagnostics;
@@ -105,7 +105,7 @@ namespace XwRemote.Misc
         {
             using (WebClient client = new WebClient())
             {
-                string URL = $"https://github.com/maxsnts/{Main.UpdateRepo}/releases/latest";
+                string URL = $"https://github.com/lussifa/{Main.UpdateRepo}/releases/latest";
 
                 try
                 {
@@ -166,7 +166,7 @@ namespace XwRemote.Misc
             string path = Environment.CurrentDirectory;
             using (WebClient client = new WebClient())
             {
-                string URL = $"https://github.com/maxsnts/{Main.UpdateRepo}/releases/download/v{NewVersion}/{Main.UpdateRepo}.v{NewVersion}.zip";
+                string URL = $"https://github.com/lussifa/{Main.UpdateRepo}/releases/download/v{NewVersion}/{Main.UpdateRepo}.v{NewVersion}.zip";
                 try
                 {
                     client.DownloadFileCompleted += Client_DownloadFileCompleted;
@@ -242,7 +242,7 @@ namespace XwRemote.Misc
             catch
             {
                 labelVersion.Text = "Unable to check for updates, update manually";
-                string URL = $"https://github.com/maxsnts/{Main.UpdateRepo}/releases/download/v{NewVersion}/{Main.UpdateRepo}.v{NewVersion}.zip";
+                string URL = $"https://github.com/lussifa/{Main.UpdateRepo}/releases/download/v{NewVersion}/{Main.UpdateRepo}.v{NewVersion}.zip";
                 linkLatest.Text = URL;
                 linkLatest.Visible = true;
                 buttonUpdate.Enabled = false;

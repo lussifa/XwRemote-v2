@@ -113,6 +113,8 @@ namespace XwRemote
             this.treeServers.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.treeServers_AfterCollapse);
             this.treeServers.AfterExpand += new System.Windows.Forms.TreeViewEventHandler(this.treeServers_AfterExpand);
             this.treeServers.DoubleClick += new System.EventHandler(this.treeServers_DoubleClick);
+            this.treeServers.KeyDown += new System.Windows.Forms.KeyEventHandler(this.tree_KeyDown);
+            this.treeServers.MouseUp += new System.Windows.Forms.MouseEventHandler(this.treeServers_MouseUp);
             // 
             // tabStrip1
             // 
@@ -167,18 +169,21 @@ namespace XwRemote
             this.addGroupToolStripMenuItem.Name = "addGroupToolStripMenuItem";
             this.addGroupToolStripMenuItem.Size = new System.Drawing.Size(147, 22);
             this.addGroupToolStripMenuItem.Text = "Add Group";
+            this.addGroupToolStripMenuItem.Click += new System.EventHandler(this.AddGroup_Click);
             // 
             // renameGroupToolStripMenuItem
             // 
             this.renameGroupToolStripMenuItem.Name = "renameGroupToolStripMenuItem";
             this.renameGroupToolStripMenuItem.Size = new System.Drawing.Size(147, 22);
             this.renameGroupToolStripMenuItem.Text = "Rename Group";
+            this.renameGroupToolStripMenuItem.Click += new System.EventHandler(this.RenameGroup_Click);
             // 
             // deleteGroupToolStripMenuItem
             // 
             this.deleteGroupToolStripMenuItem.Name = "deleteGroupToolStripMenuItem";
             this.deleteGroupToolStripMenuItem.Size = new System.Drawing.Size(147, 22);
             this.deleteGroupToolStripMenuItem.Text = "Delete Group";
+            this.deleteGroupToolStripMenuItem.Click += new System.EventHandler(this.DeleteGroup_Click);
             // 
             // ConnectBtn
             // 
@@ -302,12 +307,14 @@ namespace XwRemote
             this.editServerToolStripMenuItem.Name = "editServerToolStripMenuItem";
             this.editServerToolStripMenuItem.Size = new System.Drawing.Size(160, 22);
             this.editServerToolStripMenuItem.Text = "Edit Server";
+            this.editServerToolStripMenuItem.Click += new System.EventHandler(this.EditServer_Click);
             // 
             // deleteServerToolStripMenuItem
             // 
             this.deleteServerToolStripMenuItem.Name = "deleteServerToolStripMenuItem";
             this.deleteServerToolStripMenuItem.Size = new System.Drawing.Size(160, 22);
             this.deleteServerToolStripMenuItem.Text = "Delete Server";
+            this.deleteServerToolStripMenuItem.Click += new System.EventHandler(this.DeleteServer_Click);
             // 
             // addToFavoritesToolStripMenuItem
             // 

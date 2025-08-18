@@ -91,6 +91,15 @@ namespace XwRemote
 
             LoadFavorites();
             resized = false;
+            
+            // 订阅ServerManagerPanel的ServerSelected事件
+            serverManagerPanel.ServerSelected += ServerManagerPanel_ServerSelected;
+        }
+        
+        //*************************************************************************************************************
+        private void ServerManagerPanel_ServerSelected(object sender, Server server)
+        {
+            ConnectToServer(server);
         }
 
         //*************************************************************************************************************
@@ -271,7 +280,7 @@ namespace XwRemote
 
                 using (WebClient client = new WebClient())
                 {
-                    string content = client.DownloadString($"https://github.com/maxsnts/{Main.UpdateRepo}/releases/latest");
+                    string content = client.DownloadString($"https://github.com/lussifa/{Main.UpdateRepo}/releases/latest");
                     Match m = Regex.Match(content, @"(?isx)/releases/tag/v(?<VERSION>\d+\.\d+\.\d+\.\d+)""");
                     string latestVersion = m.Result("${VERSION}");
 

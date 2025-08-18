@@ -326,5 +326,64 @@ namespace XwRemote
         {
             // Search functionality can be implemented here
         }
+
+        //****************************************************************************************************
+        private void treeServers_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                TreeNode node = treeServers.GetNodeAt(e.X, e.Y);
+                if (node != null)
+                {
+                    treeServers.SelectedNode = node;
+                    
+                    if (node.Tag is Server)
+                    {
+                        contextServer.Show(treeServers, e.Location);
+                    }
+                    else if (node.Tag is Group)
+                    {
+                        contextGroup.Show(treeServers, e.Location);
+                    }
+                }
+            }
+        }
+
+        //****************************************************************************************************
+        private void AddGroup_Click(object sender, EventArgs e)
+        {
+            Group group = new Group();
+            group.ParentID = GetSelectedGroup();
+            group.New();
+            LoadList();
+        }
+
+        //****************************************************************************************************
+        private void RenameGroup_Click(object sender, EventArgs e)
+        {
+            if (treeServers.SelectedNode?.Tag is Group)
+            {
+                Group group = (Group)treeServers.SelectedNode.Tag;
+                group.Edit();
+                LoadList();
+            }
+        }
+
+        //****************************************************************************************************
+        private void DeleteGroup_Click(object sender, EventArgs e)
+        {
+            if (treeServers.SelectedNode?.Tag is Group)
+            {
+                Group group = (Group)treeServers.SelectedNode.Tag;
+                if (MessageBox.Show($"Are you sure you want to delete the group \"{group.Name}\"?", "Delete?", 
+                    MessageBoxButtons.YesNo, 
+                    MessageBoxIcon.Question, 
+                    MessageBoxDefaultButton.Button2) == System.Windows.Forms.DialogResult.Yes)
+                {
+                    Main.config.DeleteGroup(group);
+                    LoadList();
+                }
+            }
+        }
     }
 }
