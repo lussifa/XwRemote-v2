@@ -36,6 +36,13 @@ namespace XwRemote.Servers
             SetRegistryFeature("FEATURE_LOCALMACHINE_LOCKDOWN", 0);
             SetRegistryFeature("FEATURE_SAFE_BINDTOOBJECT", 0);
             SetRegistryFeature("FEATURE_WINDOW_RESTRICTIONS", 0);
+            SetRegistryFeature("FEATURE_DISABLE_LEGACY_COMPRESSION", 1);
+            SetRegistryFeature("FEATURE_LOCALMACHINE_LOCKDOWN", 0);
+            SetRegistryFeature("FEATURE_BLOCK_LMZ_OBJECT", 0);
+            SetRegistryFeature("FEATURE_BLOCK_LMZ_SCRIPT", 0);
+            
+            // 设置IE安全区域以忽略证书错误
+            SetInternetSecurityZone();
             SetRegistryFeature("FEATURE_WEBOC_POPUPMANAGEMENT", 0);
             SetRegistryFeature("FEATURE_BEHAVIORS", 1);
             SetRegistryFeature("FEATURE_DISABLE_MK_PROTOCOL", 0);
@@ -198,6 +205,46 @@ namespace XwRemote.Servers
         {
             // 接受所有SSL证书，包括自签名证书和过期证书
             return true;
+        }
+
+        //*************************************************************************************************************
+        private void SetInternetSecurityZone()
+        {
+            try
+            {
+                // 设置Internet区域(Zone 3)的安全设置以忽略证书错误
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings\Zones\3",
+                    RegistryKeyPermissionCheck.ReadWriteSubTree))
+                {
+                    // 忽略证书错误的设置
+                    key.SetValue("1601", 0, RegistryValueKind.DWord); // 忽略证书错误
+                    key.SetValue("1604", 0, RegistryValueKind.DWord); // 忽略证书地址不匹配
+                    key.SetValue("1605", 0, RegistryValueKind.DWord); // 忽略证书日期无效
+                    key.SetValue("1606", 0, RegistryValueKind.DWord); // 忽略证书颁发机构无效
+                    key.SetValue("1607", 0, RegistryValueKind.DWord); // 忽略证书用途无效
+                    key.SetValue("1608", 0, RegistryValueKind.DWord); // 忽略证书CN名称不匹配
+                    key.SetValue("1609", 0, RegistryValueKind.DWord); // 忽略证书吊销检查
+                }
+                
+                // 同时设置本地Intranet区域(Zone 1)
+                using (RegistryKey key = Registry.CurrentUser.CreateSubKey(
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Internet Settings\Zones\1",
+                    RegistryKeyPermissionCheck.ReadWriteSubTree))
+                {
+                    key.SetValue("1601", 0, RegistryValueKind.DWord);
+                    key.SetValue("1604", 0, RegistryValueKind.DWord);
+                    key.SetValue("1605", 0, RegistryValueKind.DWord);
+                    key.SetValue("1606", 0, RegistryValueKind.DWord);
+                    key.SetValue("1607", 0, RegistryValueKind.DWord);
+                    key.SetValue("1608", 0, RegistryValueKind.DWord);
+                    key.SetValue("1609", 0, RegistryValueKind.DWord);
+                }
+            }
+            catch
+            {
+                // 忽略注册表设置错误
+            }
         }
     }
 }
