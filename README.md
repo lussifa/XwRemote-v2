@@ -1,4 +1,7 @@
 # XwRemote 
+
+I am not the original author. I only forked the original author's code and added a sidebar in the style of MobaXterm. Therefore, I have retained the original author's donation link. If you like it, please continue to donate to the original author.
+
 [![PayPal donate button](https://www.paypalobjects.com/webstatic/en_US/btn/btn_donate_pp_142x27.png)](https://www.paypal.me/maxsnts)
 
 How do i eliminate the need for many applications and the consequent open and close merry-go-round?
