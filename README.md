@@ -1,6 +1,8 @@
 # XwRemote 
 
 I am not the original author. I only forked the original author's code and added a sidebar in the style of MobaXterm. Therefore, I have retained the original author's donation link. If you like it, please continue to donate to the original author.
+<img width="1337" height="1031" alt="图片" src="https://github.com/user-attachments/assets/e520a43e-9b53-4d4c-a632-dd84eb2618cf" />
+
 
 [![PayPal donate button](https://www.paypalobjects.com/webstatic/en_US/btn/btn_donate_pp_142x27.png)](https://www.paypal.me/maxsnts)
 
