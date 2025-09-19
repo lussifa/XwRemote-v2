@@ -1,10 +1,11 @@
 ﻿using KRBTabControlNS.CustomTab;
 using Microsoft.Win32;
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Net.Sockets;
-using System.Security;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using XwMaxLib.Extensions;
@@ -14,9 +15,13 @@ namespace XwRemote.Servers
 {
     public partial class SSHForm : Form
     {
-        private PuttyAppPanel puttyPanel;  
+        private PuttyAppPanel puttyPanel;
         private Server server = null;
         private string ShhKeyFile = "";
+        private System.Threading.Timer resourceTimer;
+        private int resourceRefreshInProgress = 0;
+        private const int ResourceRefreshIntervalMs = 5000;
+        private static readonly string ResourceMonitoringCommand = BuildResourceMonitoringCommand();
         
         //*************************************************************************************************************
         public SSHForm(Server srv)
@@ -25,6 +30,22 @@ namespace XwRemote.Servers
             Dock = DockStyle.Fill;
             TopLevel = false;
             server = srv;
+        }
+
+        //*************************************************************************************************************
+        private static string BuildResourceMonitoringCommand()
+        {
+            StringBuilder script = new StringBuilder();
+            script.Append("cpu_line=$(top -bn1 2>/dev/null | grep \"Cpu(s)\" | head -n 1); ");
+            script.Append("if [ -z \"$cpu_line\" ]; then cpu_line=$(top -bn1 | grep \"Cpu(s)\" | head -n 1); fi; ");
+            script.Append("cpu=$(echo \"$cpu_line\" | awk -F\",\" \"{for (i=1;i<=NF;i++) if ($i ~ /id/) {gsub(/[^0-9.]/, \\\"\\\", $i); printf \\\"%.1f\\\", 100-$i; exit }}\"); ");
+            script.Append("mem=$(free -m 2>/dev/null | awk \"NR==2 {if ($2==0) {printf \\\"N/A\\\"} else {printf \\\"%s/%sMB (%.0f%%)\\\", $3, $2, $3*100/$2}}\" ); ");
+            script.Append("disk=$(df -hP / 2>/dev/null | awk \"NR==2 {print $3 \\\"/\\\" $2 \\\" (\\\" $5 \\\")\\\"}\"); ");
+            script.Append("if [ -z \"$cpu\" ]; then cpu=\"N/A\"; fi; ");
+            script.Append("if [ -z \"$mem\" ]; then mem=\"N/A\"; fi; ");
+            script.Append("if [ -z \"$disk\" ]; then disk=\"N/A\"; fi; ");
+            script.Append("printf \"CPU=%s%%\\nMEM=%s\\nDISK=%s\\n\" \"$cpu\" \"$mem\" \"$disk\"");
+            return "LANG=C sh -lc '" + script.ToString() + "'";
         }
 
         //*************************************************************************************************************
@@ -47,7 +68,11 @@ namespace XwRemote.Servers
             puttyPanel.TabIndex = 0;
             puttyPanel.Visible = false;
             Controls.Add(puttyPanel);
-            
+
+            statusBarPanel.BringToFront();
+            UpdateResourceLabels("--", "--", "--");
+            statusBarPanel.Visible = false;
+
             ResumeLayout();
         }
 
@@ -60,7 +85,11 @@ namespace XwRemote.Servers
         //*************************************************************************************************************
         public void Connect()
         {
-            // Auto accept the host key 
+            StopResourceMonitor();
+            statusBarPanel.Visible = false;
+            UpdateResourceLabels("--", "--", "--");
+
+            // Auto accept the host key
             // using putty is starting to be complicated
             // but there is no real alternative
             // if we try to avoid some focus problems, we need to auto accept host keys
@@ -94,6 +123,9 @@ namespace XwRemote.Servers
                     loadingCircle1.Active = false;
                     statusLabel.Visible = false;
                     puttyPanel.Visible = true;
+                    statusBarPanel.Visible = true;
+                    if (!StartResourceMonitor())
+                        UpdateResourceLabels("N/A", "N/A", "N/A");
                 });
             };
 
@@ -103,6 +135,10 @@ namespace XwRemote.Servers
                 {
                     BeginInvoke((MethodInvoker)delegate
                     {
+                        StopResourceMonitor();
+                        statusBarPanel.Visible = false;
+                        UpdateResourceLabels("--", "--", "--");
+
                         if (error)
                         {
                             SetStatusText("Connection closed");
@@ -206,6 +242,9 @@ namespace XwRemote.Servers
         //*************************************************************************************************************
         public bool OnTabClose()
         {
+            StopResourceMonitor();
+            statusBarPanel.Visible = false;
+            UpdateResourceLabels("--", "--", "--");
             DeletePuttySession();
             puttyPanel.Close();
             return true;
@@ -221,6 +260,241 @@ namespace XwRemote.Servers
         public void ResizeEnded()
         {
 
+        }
+
+        //*************************************************************************************************************
+        private bool StartResourceMonitor()
+        {
+            if (server == null || string.IsNullOrWhiteSpace(server.Host))
+                return false;
+
+            string plinkPath = Path.Combine("putty", "plink.exe");
+            if (!File.Exists(plinkPath))
+                return false;
+
+            if (string.IsNullOrWhiteSpace(server.Username))
+                return false;
+
+            if (string.IsNullOrEmpty(server.Password) && string.IsNullOrEmpty(ShhKeyFile))
+                return false;
+
+            StopResourceMonitor();
+
+            resourceTimer = new System.Threading.Timer(
+                RefreshResourceUsage,
+                null,
+                TimeSpan.Zero,
+                TimeSpan.FromMilliseconds(ResourceRefreshIntervalMs));
+
+            return true;
+        }
+
+        //*************************************************************************************************************
+        private void StopResourceMonitor()
+        {
+            System.Threading.Timer timer = resourceTimer;
+            resourceTimer = null;
+            if (timer != null)
+            {
+                try
+                {
+                    timer.Dispose();
+                }
+                catch
+                {
+                }
+            }
+
+            Interlocked.Exchange(ref resourceRefreshInProgress, 0);
+        }
+
+        //*************************************************************************************************************
+        private void RefreshResourceUsage(object state)
+        {
+            if (Interlocked.Exchange(ref resourceRefreshInProgress, 1) == 1)
+                return;
+
+            try
+            {
+                if (!IsHandleCreated || IsDisposed)
+                    return;
+
+                string output = ExecuteResourceCommand();
+                if (string.IsNullOrWhiteSpace(output))
+                {
+                    BeginInvoke(new MethodInvoker(() => UpdateResourceLabels("N/A", "N/A", "N/A")));
+                    return;
+                }
+
+                string cpu = null;
+                string memory = null;
+                string disk = null;
+
+                using (StringReader reader = new StringReader(output))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        if (line.StartsWith("CPU=", StringComparison.OrdinalIgnoreCase))
+                            cpu = line.Substring(4).Trim();
+                        else if (line.StartsWith("MEM=", StringComparison.OrdinalIgnoreCase))
+                            memory = line.Substring(4).Trim();
+                        else if (line.StartsWith("DISK=", StringComparison.OrdinalIgnoreCase))
+                            disk = line.Substring(5).Trim();
+                    }
+                }
+
+                BeginInvoke(new MethodInvoker(() =>
+                    UpdateResourceLabels(cpu ?? "N/A", memory ?? "N/A", disk ?? "N/A")));
+            }
+            catch
+            {
+                try
+                {
+                    BeginInvoke(new MethodInvoker(() => UpdateResourceLabels("N/A", "N/A", "N/A")));
+                }
+                catch
+                {
+                }
+            }
+            finally
+            {
+                Interlocked.Exchange(ref resourceRefreshInProgress, 0);
+            }
+        }
+
+        //*************************************************************************************************************
+        private string ExecuteResourceCommand()
+        {
+            try
+            {
+                string plinkPath = Path.Combine("putty", "plink.exe");
+                if (!File.Exists(plinkPath))
+                    return null;
+
+                if (server == null || string.IsNullOrWhiteSpace(server.Host))
+                    return null;
+
+                ProcessStartInfo startInfo = new ProcessStartInfo
+                {
+                    FileName = plinkPath,
+                    Arguments = BuildPlinkArguments(ResourceMonitoringCommand),
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8,
+                    StandardErrorEncoding = Encoding.UTF8
+                };
+
+                using (Process process = new Process())
+                {
+                    process.StartInfo = startInfo;
+                    process.Start();
+
+                    string output = process.StandardOutput.ReadToEnd();
+                    process.StandardError.ReadToEnd();
+
+                    if (!process.WaitForExit(7000))
+                    {
+                        try
+                        {
+                            process.Kill();
+                        }
+                        catch
+                        {
+                        }
+                        return null;
+                    }
+
+                    if (process.ExitCode != 0)
+                        return null;
+
+                    return output;
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        //*************************************************************************************************************
+        private string BuildPlinkArguments(string remoteCommand)
+        {
+            StringBuilder args = new StringBuilder();
+            args.Append("-batch -ssh ");
+
+            if (server.Port > 0)
+                args.Append("-P ").Append(server.Port).Append(' ');
+
+            if (!string.IsNullOrWhiteSpace(server.Username))
+                args.Append("-l ").Append(QuoteArgument(server.Username)).Append(' ');
+
+            if (!string.IsNullOrEmpty(server.Password))
+                args.Append("-pw ").Append(QuoteArgument(server.Password)).Append(' ');
+
+            if (!string.IsNullOrEmpty(ShhKeyFile))
+                args.Append("-i ").Append(QuoteArgument(ShhKeyFile)).Append(' ');
+
+            args.Append(server.SSH1 ? "-1 " : "-2 ");
+            args.Append(QuoteArgument(server.Host));
+
+            if (!string.IsNullOrEmpty(remoteCommand))
+            {
+                args.Append(' ');
+                args.Append(QuoteArgument(remoteCommand));
+            }
+
+            return args.ToString();
+        }
+
+        //*************************************************************************************************************
+        private static string QuoteArgument(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return "\"\"";
+
+            StringBuilder builder = new StringBuilder();
+            builder.Append('"');
+
+            int backslashes = 0;
+            foreach (char c in value)
+            {
+                if (c == '\\')
+                {
+                    backslashes++;
+                }
+                else if (c == '"')
+                {
+                    builder.Append('\', backslashes * 2 + 1);
+                    builder.Append('"');
+                    backslashes = 0;
+                }
+                else
+                {
+                    if (backslashes > 0)
+                    {
+                        builder.Append('\', backslashes);
+                        backslashes = 0;
+                    }
+                    builder.Append(c);
+                }
+            }
+
+            if (backslashes > 0)
+                builder.Append('\', backslashes * 2);
+
+            builder.Append('"');
+            return builder.ToString();
+        }
+
+        //*************************************************************************************************************
+        private void UpdateResourceLabels(string cpu, string memory, string disk)
+        {
+            cpuStatusLabel.Text = $"CPU: {cpu}";
+            memoryStatusLabel.Text = $"Memory: {memory}";
+            diskStatusLabel.Text = $"Disk: {disk}";
         }
 
         //*************************************************************************************************************
